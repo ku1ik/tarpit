@@ -1,6 +1,10 @@
-use std::{io, time::Duration, env, future::Future};
-use tokio::{net::{TcpListener, TcpStream}, time::{sleep, Instant}, io::AsyncWriteExt};
 use rand::random;
+use std::{env, future::Future, io, time::Duration};
+use tokio::{
+    io::AsyncWriteExt,
+    net::{TcpListener, TcpStream},
+    time::{sleep, Instant},
+};
 
 async fn ssh_handler(mut socket: TcpStream) -> io::Result<()> {
     loop {
@@ -34,21 +38,27 @@ async fn http_handler(mut socket: TcpStream) -> io::Result<()> {
     }
 }
 
-async fn accept<F, Fut>(listener: TcpListener, handler: F) where
+async fn accept<F, Fut>(listener: TcpListener, handler: F)
+where
     F: Fn(TcpStream) -> Fut,
-    Fut: Future<Output = io::Result<()>> + std::marker::Send + 'static {
+    Fut: Future<Output = io::Result<()>> + std::marker::Send + 'static,
+{
     loop {
         match listener.accept().await {
             Ok((socket, addr)) => {
                 eprintln!("new connection from {}", addr);
                 let h = handler(socket);
-                
+
                 tokio::spawn(async move {
                     let now = Instant::now();
 
                     if let Err(e) = h.await {
                         eprintln!("socket error for {}: {}", addr, e);
-                        eprintln!("client {} trapped for {} sec", addr, now.elapsed().as_secs());
+                        eprintln!(
+                            "client {} trapped for {} sec",
+                            addr,
+                            now.elapsed().as_secs()
+                        );
                     }
                 });
             }
