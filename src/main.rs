@@ -51,15 +51,13 @@ where
 
                 tokio::spawn(async move {
                     let now = Instant::now();
-
-                    if let Err(e) = h.await {
-                        eprintln!("socket error for {}: {}", addr, e);
-                        eprintln!(
-                            "client {} trapped for {} sec",
-                            addr,
-                            now.elapsed().as_secs()
-                        );
-                    }
+                    let e = h.await.unwrap_err();
+                    eprintln!("socket error for {}: {}", addr, e);
+                    eprintln!(
+                        "client {} trapped for {} sec",
+                        addr,
+                        now.elapsed().as_secs()
+                    );
                 });
             }
 
