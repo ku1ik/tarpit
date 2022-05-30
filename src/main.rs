@@ -1,11 +1,11 @@
 use clap::Parser;
 use rand::random;
-use std::{future::Future, io, time::Duration};
-use tokio::{
-    io::AsyncWriteExt,
-    net::{TcpListener, TcpStream},
-    time::{sleep, Instant},
-};
+use std::future::Future;
+use std::io;
+use std::time::Duration;
+use tokio::io::AsyncWriteExt;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::time::{sleep, Instant};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
