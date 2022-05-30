@@ -1,10 +1,27 @@
+use clap::Parser;
 use rand::random;
-use std::{env, future::Future, io, time::Duration};
+use std::{future::Future, io, time::Duration};
 use tokio::{
     io::AsyncWriteExt,
     net::{TcpListener, TcpStream},
     time::{sleep, Instant},
 };
+
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
+struct Cli {
+    /// Enable SSH tarpit on given listen address
+    #[clap(long)]
+    ssh: Option<String>,
+
+    /// Enable SMTP tarpit on given listen address
+    #[clap(long)]
+    smtp: Option<String>,
+
+    /// Enable HTTP tarpit on given listen address
+    #[clap(long)]
+    http: Option<String>,
+}
 
 async fn ssh_handler(mut socket: TcpStream) -> io::Result<()> {
     loop {
@@ -69,20 +86,32 @@ where
 }
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
-    let ssh_bind_addr = env::args().nth(1).unwrap_or("0.0.0.0:2222".to_string());
-    let ssh_listener = TcpListener::bind(ssh_bind_addr).await?;
-    let ssh = accept(ssh_listener, ssh_handler);
+async fn main() -> anyhow::Result<()> {
+    let cli = Cli::parse();
+    let mut handles = Vec::new();
 
-    let smtp_bind_addr = env::args().nth(2).unwrap_or("0.0.0.0:2525".to_string());
-    let smtp_listener = TcpListener::bind(smtp_bind_addr).await?;
-    let smtp = accept(smtp_listener, smtp_handler);
+    if let Some(ssh_bind_addr) = cli.ssh {
+        let ssh_listener = TcpListener::bind(ssh_bind_addr).await?;
+        handles.push(tokio::spawn(accept(ssh_listener, ssh_handler)));
+    }
 
-    let http_bind_addr = env::args().nth(3).unwrap_or("0.0.0.0:8080".to_string());
-    let http_listener = TcpListener::bind(http_bind_addr).await?;
-    let http = accept(http_listener, http_handler);
+    if let Some(smtp_bind_addr) = cli.smtp {
+        let smtp_listener = TcpListener::bind(smtp_bind_addr).await?;
+        handles.push(tokio::spawn(accept(smtp_listener, smtp_handler)));
+    }
 
-    tokio::join!(ssh, smtp, http);
+    if let Some(http_bind_addr) = cli.http {
+        let http_listener = TcpListener::bind(http_bind_addr).await?;
+        handles.push(tokio::spawn(accept(http_listener, http_handler)));
+    }
 
-    Ok(())
+    if !handles.is_empty() {
+        for handle in handles {
+            handle.await?;
+        }
+
+        Ok(())
+    } else {
+        anyhow::bail!("at least one of --ssh/--smtp/--http options needed");
+    }
 }
